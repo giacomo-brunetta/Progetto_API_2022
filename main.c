@@ -427,6 +427,9 @@ void aggiorna_vincoli_recursive(node* x, uint64_t accettabili[]){
         else if(list_index == LIST_SIZE){
             curr->next = malloc(sizeof(struct list));
             curr = curr->next;
+            for(i=0;i<LIST_SIZE;i++){
+                curr->ptr[i] = NULL;
+            }
             curr->valid = 0;
             list_index = 0;
             curr->next = NULL;
@@ -510,14 +513,14 @@ void ripristina_vincoli(node* x){
 
 int main(){
     //questa parte del main funge da parser
-    //FILE* fp= fopen("/home/giacomo/test/slide.txt","r"); //test in locale
+    //FILE* fp= fopen("/home/giacomo/Scaricati/n128000_k5_g200_test1.txt","r"); //test in locale
     FILE* fp = stdin;
     if(fp == NULL){
         printf("NULL FILE");
         return 1;
     }
     node* insert = NULL;
-    int tries,s=0;
+    int tries,s=0, i=0;
     uint8_t sc = 0, primo_confronto = 0;
     char command;
     s = fscanf(fp,"%d",&len);
@@ -574,8 +577,9 @@ int main(){
                     if(sc == 0){
                         if(head == NULL){
                             head = curr = malloc(sizeof(struct list));
-                            curr->next = malloc(sizeof(struct list));
-                            curr = curr->next;
+                            for(i=0;i<LIST_SIZE;i++){
+                                curr->ptr[i] = NULL;
+                            }
                             list_index = 0;
                             curr->next = NULL;
                             curr->valid = 0;
@@ -583,6 +587,9 @@ int main(){
                         else if(list_index == LIST_SIZE){
                             curr->next = malloc(sizeof(struct list));
                             curr = curr->next;
+                            for(i=0;i<LIST_SIZE;i++){
+                                curr->ptr[i] = NULL;
+                            }
                             list_index = 0;
                             curr->next = NULL;
                             curr->valid = 0;
