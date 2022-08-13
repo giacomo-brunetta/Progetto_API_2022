@@ -18,6 +18,8 @@ static uint8_t vincoli_aggiornati[64];
 static uint64_t Global_sbagliate = 0ULL;
 static uint8_t end=2; //end = 2 indica la prima partita
 
+//questa parte del codice gestisce l'acquisizione, il confronto e la classificazione delle stringhe nel dizionario (filtrate/scartate)
+
 char get_input(FILE* fp, char temp[]){
     char c;
     char flag = 0;
@@ -395,6 +397,8 @@ uint8_t binary_search(char* target){//ricerca binaria in BST, restituisce 1 se t
     }
 }
 
+//questa parte del codice implementa la gestione del dizionario e della struttura secondaria (linked list)
+
 typedef struct list{
     node* ptr[LIST_SIZE];
     uint8_t valid;
@@ -511,8 +515,9 @@ void ripristina_vincoli(node* x){
     return;
 }
 
+//Il main funge da parser e gestisce le chiamate alle funzioni necessarie per gestire le strutture dati
+
 int main(){
-    //questa parte del main funge da parser
     //FILE* fp= fopen("/home/giacomo/Scaricati/n128000_k5_g200_test1.txt","r"); //test in locale
     FILE* fp = stdin;
     if(fp == NULL){
@@ -550,8 +555,7 @@ int main(){
             //tutte le lettere sono accettabili in ogni posizione
             memset(accettabili,UINT8_MAX,len*8);
             filtrate_counter = 0;
-            //svuoto la struttura ausiliaria
-            empty_list();
+            empty_list(); //svuoto la struttura ausiliaria
             end = 0; //flaggo l'inizio della partita
             primo_confronto = 1;
             command = get_input(fp,reference);
