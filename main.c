@@ -9,7 +9,7 @@ else if(A <= '9') B = A - '0';\
 else if(A <= 'Z') B = A - 'A' + 10;\
 else B = A - 'a' +36;
 
-#define LIST_SIZE 100
+#define LIST_SIZE 50
 
 static int len = 0;
 static int filtrate_counter = 0;
@@ -614,11 +614,12 @@ int main(){
                         printf("ok\n");
                     }
                     else{
-                        filtrate_counter = 0;
                         if(primo_confronto == 1){
+                            filtrate_counter = 0;
                             aggiorna_vincoli_recursive(root,accettabili);
                         }
-                        else{
+                        else if(filtrate_counter >1){
+                            filtrate_counter = 0;
                             aggiorna_vincoli_list(accettabili);
                         }
                         primo_confronto = 0;
