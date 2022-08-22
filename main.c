@@ -3,18 +3,18 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define POS(A,B) if(A=='_') B = 62;\
-else if(A == '-') B = 63;\
-else if(A <= '9') B = A - '0';\
-else if(A <= 'Z') B = A - 'A' + 10;\
-else B = A - 'a' + 36;
+#define POS(A,B) if(A <= 'Z' && A >= 'A') B = A - 'A' + 10;\
+else if(A <= 'z' && A >= 'a') B = A - 'a' + 36;\
+else if(A >= '0' && A <= '9') B = A - '0';\
+else if(A == '_') B = 62;\
+else B = 63;
 
 static int len = 0;
-static unsigned long int filtrate_counter = 0, total_counter = 0;
+static unsigned int filtrate_counter = 0, total_counter = 0;
 static uint8_t Global_counter[64];
-static uint8_t vincoli_aggiornati[64];
+static int8_t* vincoli_aggiornati;
 static uint64_t Global_sbagliate = 0ULL;
-static uint8_t end=2; //end = 2 indica la prima partita
+static int end=2; //end = 2 indica la prima partita
 
 //questa parte del codice gestisce l'acquisizione, il confronto e la classificazione delle stringhe nel dizionario (filtrate/scartate)
 
@@ -42,13 +42,12 @@ char get_input(char temp[]){
 }
 
 void confronta(char p[], char r[], char out[], uint64_t accettabili[]){ //genera l'output del confronto tra parole (r corretta, p da verificare)
-    uint8_t temp_counter[64], counter[64], pos;
+    uint8_t temp_counter[64], counter[64];
     uint64_t j = 1ULL;
     uint64_t aggiorna = 0ULL;
     memset(counter,0,64);
     memset(temp_counter,0,64);
-    memset(vincoli_aggiornati,0,64);
-    unsigned int v = 0, i = 0;
+    int v = 0, i = 0, pos, k = 0;
     end = 1;
     for(i=0;i<len;i++){
         POS(p[i],pos);
@@ -59,7 +58,7 @@ void confronta(char p[], char r[], char out[], uint64_t accettabili[]){ //genera
             if(counter[pos] > Global_counter[pos]){ //ho un nuovo massimo di apparizioni legali di una lettera
                 Global_counter[pos] = counter[pos];
                 if((aggiorna & j) == 0){
-                    vincoli_aggiornati[v] = p[i];
+                    vincoli_aggiornati[v] = pos;
                     v++;
                     aggiorna |= j;
                 }
@@ -85,7 +84,7 @@ void confronta(char p[], char r[], char out[], uint64_t accettabili[]){ //genera
                 if(counter[pos] > Global_counter[pos]){ //ho un nuovo massimo di apparizioni legali di una lettera
                     Global_counter[pos] = counter[pos];
                     if((aggiorna & j) == 0){
-                        vincoli_aggiornati[v] = p[i];
+                        vincoli_aggiornati[v] = pos;
                         v++;
                         aggiorna |= j;
                     }
@@ -97,39 +96,45 @@ void confronta(char p[], char r[], char out[], uint64_t accettabili[]){ //genera
                 if((Global_sbagliate & j) == 0){ //se non era già una sbagliata
                     Global_sbagliate |= j;
                     if((aggiorna & j) == 0){
-                        vincoli_aggiornati[v] = p[i];
+                        vincoli_aggiornati[v] = pos;
                         v++;
                         aggiorna |= j;
+                    }
+                    if(counter[pos] == 0){ //se la lettera non deve mai comparire è sempre inaccettabile
+                        for(k = 0; k<len; k++){
+                            accettabili[k] &= ~j;
+                        }
                     }
                 }
             }
         }
     }
+    vincoli_aggiornati[v] = -1;
     return;
 }
 
-uint8_t scarta_update(char p[], uint64_t accettabili[]){
-    uint i=0, k=0;
-    uint64_t j = 0;
-    uint8_t pos, counter[64];
+int scarta_update(char p[], uint64_t accettabili[]){
+    int i=0, k=0, pos;
+    uint64_t j;
+    uint8_t counter[64];
     memset(counter,0,64);
-    for(i=0;i<len;i++){
+    while(i<len){
         POS(p[i],pos);
         j = 1ULL << pos;
         if((j & accettabili[i]) == 0){
             return 1;
         }
         counter[pos]++;
+        i++;
     }
-    while(vincoli_aggiornati[k] != 0){
-        POS(vincoli_aggiornati[k],pos);
-        j = 1ULL << pos;
+    while(vincoli_aggiornati[k] != -1){
+        j = 1ULL << vincoli_aggiornati[k];
         if((j & Global_sbagliate) > 0){ //il flag sbagliate mi garantisce di conoscere il numero esatto
-            if(counter[pos] != Global_counter[pos]){
+            if(counter[vincoli_aggiornati[k]] != Global_counter[vincoli_aggiornati[k]]){
                 return 1;
             }
         }
-        else if(counter[pos] < Global_counter[pos]){ //la lettera non appare abbastanza volte
+        else if(counter[vincoli_aggiornati[k]] < Global_counter[vincoli_aggiornati[k]]){ //la lettera non appare abbastanza volte
             return 1;
         }
         k++;
@@ -137,64 +142,47 @@ uint8_t scarta_update(char p[], uint64_t accettabili[]){
     return 0;
 }
 
-uint8_t scarta(char p[], char r[], uint64_t accettabili[]){
-    uint64_t j = 0;
+int scarta(char p[], char r[], uint64_t accettabili[]){
+    uint64_t j;
     uint64_t checklist = 0ULL;
-    char to_check[64];
+    int8_t to_check[2*len+1];
     uint8_t counter[64];
-    unsigned int i = 0, k = 0;
+    int i = 0, k = 0, pos;
     memset(counter,0,64);
-    memset(to_check,0,64);
-    uint8_t pos;
-    for(i=0; i<len;i++){
+    while(i<len){
         POS(r[i],pos);
         j = 1ULL << pos;
         if((checklist & j) == 0){
-            to_check[k] = r[i];
+            to_check[k] = pos;
             k++;
         }
         POS(p[i],pos);
         j = 1ULL << pos;
         if((checklist & j) == 0){
-            to_check[k] = p[i];
+            to_check[k] = pos;
             k++;
         }
         if((j & accettabili[i]) == 0){ //mi assicuro che la lettera possa andare nella i-esima posizione
             return 1;
         }
         counter[pos]++;
+        i++;
     }
+    to_check[k] = -1;
     k=0;
-    while(to_check[k] != 0){
-        POS(to_check[k],i);
-        j = 1ULL << i;
+    while(to_check[k] != -1){
+        j = 1ULL << to_check[k];
         if((j & Global_sbagliate) > 0){ //il flag sbagliate mi garantisce di conoscere il numero esatto
-            if(counter[i] != Global_counter[i]){
+            if(counter[to_check[k]] != Global_counter[to_check[k]]){
                 return 1;
             }
         }
-        else if(counter[i] < Global_counter[i]){ //la lettera non appare abbastanza volte
+        else if(counter[to_check[k]] < Global_counter[to_check[k]]){ //la lettera non appare abbastanza volte
             return 1;
         }
         k++;
     }
     return 0;
-}
-
-int8_t string_compare(char a[], char b[]){ //date due str in input dice quale viene prima in ordine lessicografico
-    int i = 0;
-    while(i<len && a[i] == b[i]){
-        i++;
-    }
-    if(i>=len){ //sono uguali
-        return 0;
-    }
-    else if(a[i]<b[i]){ // a viene prima di b
-        return -1;
-    }
-    else{ //b viene prima di a
-        return 1;
-    }
 }
 
 //questa parte del codice implementa gli Alberi Rosso Neri necessari per la creazione del dizionario
@@ -215,35 +203,32 @@ typedef struct nodo{
 
 static node* root = NULL;
 
-void inorder(node* visit, uint8_t slow){
-    if(visit == NULL)
-        return;
-    if(slow == 1){
-        if(visit->l != NULL){
-            inorder(visit->l,slow);
-        }
-        if(visit->scartata == 0){
-            fwrite((char*) visit+sizeof(node),1,len,stdout);
-            printf("\n");
-        }
-        if(visit->r != NULL){
-            inorder(visit->r,slow);
-        }
-        return;
+void quick_inorder(node* visit){
+    if(!visit->grey_l){
+        quick_inorder(visit->l);
     }
-    else{
-        if(visit->l != NULL && visit->grey_l == 0){
-            inorder(visit->l,slow);
-        }
-        if(visit->scartata == 0){
-            fwrite((char*) visit+sizeof(node),1,len,stdout);
-            printf("\n");
-        }
-        if(visit->r != NULL && visit->grey_r == 0){
-            inorder(visit->r,slow);
-        }
-        return;
+    if(!visit->scartata){
+        fwrite((char*) visit+sizeof(node),1,len,stdout);
+        printf("\n");
     }
+    if(!visit->grey_r){
+        quick_inorder(visit->r);
+    }
+    return;
+}
+
+void inorder(node* visit){
+    if(visit->l != NULL){
+        inorder(visit->l);
+    }
+    if(!visit->scartata){
+        fwrite((char*) visit+sizeof(node),1,len,stdout);
+        printf("\n");
+    }
+    if(visit->r != NULL){
+        inorder(visit->r);
+    }
+    return;
 }
 
 void left_rotate(node* x){
@@ -344,7 +329,7 @@ void RB_Insert(node* z){
     x = root;
     while(x != NULL) {
         y = x;
-        if (string_compare((char*) z+sizeof(node),(char*) x+sizeof(node))==-1) {
+        if (memcmp((char*) z+sizeof(node),(char*) x+sizeof(node),len)<0) {
             x = x->l;
         }
         else {
@@ -355,7 +340,7 @@ void RB_Insert(node* z){
     if(y == NULL){
         root = z;
     }
-    else if(string_compare((char*) z+sizeof(node),(char*) y+sizeof(node))==-1){
+    else if(memcmp((char*) z+sizeof(node),(char*) y+sizeof(node),len)<0){
         y->l = z;
     }
     else{
@@ -364,13 +349,10 @@ void RB_Insert(node* z){
     RB_Insert_Fixup(z);
 }
 
-void create_and_insert(char* str, uint8_t scartata){ //si potrebbe accorpare con insert
+void create_and_insert(char* str, uint8_t scartata){
     node *a;
     a = (node*)malloc(sizeof(node)+len);
-    char* b = (char*) a + sizeof(node);
-    for(int i=0; i<len; i++){
-        b[i] = str[i];
-    }
+    strncpy((char*) a + sizeof(node),str,len);
     a->p = NULL;
     a->l = NULL;
     a->r = NULL;
@@ -388,15 +370,15 @@ void create_and_insert(char* str, uint8_t scartata){ //si potrebbe accorpare con
     return;
 }
 
-uint8_t binary_search(char* target){//ricerca binaria in BST, restituisce 1 se trovato, 0 altrimenti
+int binary_search(char* target){//ricerca binaria in BST, restituisce 1 se trovato, 0 altrimenti
     node* temp = root;
-    int c = 1 ;
-    while(temp != NULL && c != 0){
-        c = string_compare(target,(char*) temp+sizeof(node));
-        if(c == -1){
+    int c = 1;
+    while(c!=0 && temp != NULL){
+        c = memcmp(target,(char*) temp+sizeof(node),len);
+        if(c < 0){
             temp = temp->l;
         }
-        else if(c == 1) {
+        else if(c > 0) {
             temp = temp->r;
         }
     }
@@ -410,50 +392,41 @@ uint8_t binary_search(char* target){//ricerca binaria in BST, restituisce 1 se t
 
 //questa parte del codice implementa la gestione del dizionario e della struttura secondaria (linked list)
 
-
-uint8_t aggiorna_vincoli_recursive(node* x, uint64_t accettabili[], uint8_t set){ //return 1 se da li a sotto l'albero è tutto composto di scartate (grey)
-    if(x == NULL){
-        return 1;
-    }
-    if(x->scartata == 0 && scarta_update((char*) x+sizeof(node),accettabili) == 1){
+uint8_t set_vincoli_recursive(node* x, uint64_t accettabili[]){
+    if(!x->scartata && scarta_update((char*) x+sizeof(node),accettabili)){
         x->scartata = 1;
         filtrate_counter--;
     }
-    if(set == 0){
-        if(x->l != NULL && x->grey_l == 0){
-            x->grey_l = aggiorna_vincoli_recursive(x->l, accettabili, set);
-        }
-        else if(x->l == NULL){
-            x->grey_l = 1;
-        }
-        if(x->r != NULL && x->grey_r == 0){
-            x->grey_r = aggiorna_vincoli_recursive(x->r, accettabili, set);
-        }
-        else if(x->r == NULL){
-            x->grey_r = 1;
-        }
+    if(x->l != NULL){
+        x->grey_l = set_vincoli_recursive(x->l, accettabili);
     }
     else{
-        if(x->l != NULL){
-            x->grey_l = aggiorna_vincoli_recursive(x->l, accettabili, set);
-        }
-        else{
-            x->grey_l = 1;
-        }
-        if(x->r != NULL){
-            x->grey_r = aggiorna_vincoli_recursive(x->r, accettabili, set);
-        }
-        else{
-            x->grey_r = 1;
-        }
+        x->grey_l = 1;
+    }
+    if(x->r != NULL){
+        x->grey_r = set_vincoli_recursive(x->r, accettabili);
+    }
+    else{
+        x->grey_r = 1;
+    }
+    return x->scartata & x->grey_l & x->grey_r;
+}
+
+uint8_t aggiorna_vincoli_recursive(node* x, uint64_t accettabili[]){ //return 1 se da li a sotto l'albero è tutto composto di scartate (grey)
+    if(!x->scartata && scarta_update((char*) x+sizeof(node),accettabili)){
+        x->scartata = 1;
+        filtrate_counter--;
+    }
+    if(!x->grey_l){
+        x->grey_l = aggiorna_vincoli_recursive(x->l, accettabili);
+    }
+    if(!x->grey_r){
+        x->grey_r = aggiorna_vincoli_recursive(x->r, accettabili);
     }
     return x->scartata & x->grey_l & x->grey_r;
 }
 
 void ripristina_vincoli(node* x){
-    if(x == NULL){
-        return;
-    }
     x->scartata = 0;
     x->grey_l = 0;
     x->grey_r = 0;
@@ -466,21 +439,32 @@ void ripristina_vincoli(node* x){
     return;
 }
 
+void RB_del(node* geri){
+    if(geri->l != NULL){
+        RB_del(geri->l);
+    }
+    if(geri->r != NULL){
+        RB_del(geri->r);
+    }
+    free(geri);
+}
+
 //Il main funge da parser e gestisce le chiamate alle funzioni necessarie per gestire le strutture dati
 
 int main(){
-    int tries, s = 0;
-    uint8_t set = 0;
-    uint8_t sc = 0;
+    //freopen("/home/giacomo/Scaricati/n128000_k5_g200_test1.txt","r",stdin);
+    int tries, s = 0, set = 0, sc = 0;
     char command;
     s = scanf("%d",&len);
     if(s == 0){
         return 1;
     }
-    //stringa letta, stringa di riferimento della partita ed output da stampare
     char temp[len];
     char reference[len];
     char output[len];
+    int8_t vi[len+1];
+    memset(vi,0,len+1);
+    vincoli_aggiornati = vi;
     uint64_t accettabili[len]; //vettore di bitmask per segnare le lettere accettate/vietate/obbligatorie in ogni pos
     temp[0] = getc(stdin); //leggo \n che scanf ignora
     command = get_input(temp);
@@ -506,18 +490,23 @@ int main(){
             command = get_input(temp);
         }
         else if(command == 's'){ //stampa filtrate
-            inorder(root,set);
+            if(!set){
+                quick_inorder(root);
+            }
+            else{
+                inorder(root);
+            }
             command = get_input(temp);
         }
         else if(command  == 'i'){ //inserisci inizio
             command = get_input(temp);
             set = 1;
-            while(command  == 0){
+            while(command == 0){
                 total_counter++;
-                if(end == 0){
+                if(!end){
                     sc = scarta(temp,reference,accettabili);
                     create_and_insert(temp,sc);
-                    if(sc == 0){
+                    if(!sc){
                         filtrate_counter++;
                     }
                 }
@@ -529,19 +518,24 @@ int main(){
             command = get_input(temp);
         }
         else{
-            while(end == 0 && tries > 0 && command == 0){
-                if(binary_search(temp) == 1){
+            while(command == 0 && !end && tries > 0){
+                if(binary_search(temp)){
                     confronta(temp,reference,output,accettabili);
-                    if(end == 1){
+                    if(end){
                         printf("ok\n");
                     }
                     else{
-                        if(filtrate_counter != 1 || set == 1){
-                            aggiorna_vincoli_recursive(root,accettabili,set);
-                            set = 0;
+                        if(filtrate_counter != 1){
+                            if(set == 1){
+                                set = 0;
+                                set_vincoli_recursive(root,accettabili);
+                            }
+                            else{
+                                aggiorna_vincoli_recursive(root,accettabili);
+                            }
                         }
                         fwrite(output,1,len,stdout);
-                        printf("\n%lu\n",filtrate_counter);
+                        printf("\n%d\n",filtrate_counter);
                     }
                     tries--;
                 }
@@ -550,11 +544,12 @@ int main(){
                 }
                 command = get_input(temp);
             }
-            if(tries == 0 && end == 0){
+            if(tries == 0 && !end){
                 end = 1;
                 printf("ko\n");
             }
         }
     }
+    RB_del(root);
     return 0;
 }
