@@ -126,20 +126,17 @@ void confronta(int8_t p[], int8_t r[], char out[], uint64_t accettabili[]){ //ge
 
 int scarta_update(int8_t p[], uint64_t accettabili[]){
     int i=0, k=0;
-    uint64_t j = 0;
     uint8_t counter[64];
     memset(counter,0,64);
     while(i<len){
-        j = 1ULL << p[i];
-        if((j & accettabili[i]) == 0){
+        if(((1ULL << p[i]) & accettabili[i]) == 0){
             return 1;
         }
         counter[p[i]]++;
         i++;
     }
     while(vincoli_aggiornati[k] != -1){
-        j = 1ULL << vincoli_aggiornati[k];
-        if((j & Global_sbagliate) > 0){ //il flag sbagliate mi garantisce di conoscere il numero esatto
+        if(((1ULL << vincoli_aggiornati[k]) & Global_sbagliate) > 0){ //il flag sbagliate mi garantisce di conoscere il numero esatto
             if(counter[vincoli_aggiornati[k]] != Global_counter[vincoli_aggiornati[k]]){
                 return 1;
             }
@@ -154,10 +151,8 @@ int scarta_update(int8_t p[], uint64_t accettabili[]){
 
 int scarta_updated_mask(int8_t p[], uint64_t accettabili[]){
     int i=0;
-    uint64_t j = 0;
     while(i<len){
-        j = 1ULL << p[i];
-        if((j & accettabili[i]) == 0){
+        if((1ULL << p[i] & accettabili[i]) == 0){
             return 1;
         }
         i++;
@@ -166,24 +161,21 @@ int scarta_updated_mask(int8_t p[], uint64_t accettabili[]){
 }
 
 int scarta(int8_t p[], int8_t r[], uint64_t accettabili[]){
-    uint64_t j = 0;
     uint64_t checklist = 0ULL;
     int8_t to_check[2*len+1];
     uint8_t counter[64];
     int i = 0, k = 0;
     memset(counter,0,64);
     while(i<len){
-        j = 1ULL << r[i];
-        if((checklist & j) == 0){
+        if((checklist & 1ULL << r[i]) == 0){
             to_check[k] = r[i];
             k++;
         }
-        j = 1ULL << p[i];
-        if((checklist & j) == 0){
+        if((checklist & 1ULL << p[i]) == 0){
             to_check[k] = p[i];
             k++;
         }
-        if((j & accettabili[i]) == 0){ //mi assicuro che la lettera possa andare nella i-esima posizione
+        if((1ULL << p[i] & accettabili[i]) == 0){ //mi assicuro che la lettera possa andare nella i-esima posizione
             return 1;
         }
         counter[p[i]]++;
@@ -192,8 +184,7 @@ int scarta(int8_t p[], int8_t r[], uint64_t accettabili[]){
     to_check[k] = -1;
     k=0;
     while(to_check[k] != -1){
-        j = 1ULL << to_check[k];
-        if((j & Global_sbagliate) > 0){ //il flag sbagliate mi garantisce di conoscere il numero esatto
+        if((1ULL << to_check[k] & Global_sbagliate) > 0){ //il flag sbagliate mi garantisce di conoscere il numero esatto
             if(counter[to_check[k]] != Global_counter[to_check[k]]){
                 return 1;
             }
@@ -243,9 +234,9 @@ void quick_inorder(node* visit){
     }
 }
 
-void inorder(node* visit){
+void inorder_scartate(node* visit){
     if(visit->l != NULL){
-        inorder(visit->l);
+        inorder_scartate(visit->l);
     }
     if(!visit->scartata) {
         char *str = (char *) visit + sizeof(node);
@@ -258,7 +249,23 @@ void inorder(node* visit){
         fwrite(str_out, 1, len + 1, stdout);
     }
     if(visit->r != NULL){
-        inorder(visit->r);
+        inorder_scartate(visit->r);
+    }
+}
+
+void inorder_all(node* visit){
+    if(visit->l != NULL){
+        inorder_all(visit->l);
+    }
+    char *str = (char *) visit + sizeof(node);
+    char str_out[len + 1];
+    str_out[len] = '\n';
+    for (int i = 0; i < len; i++) {
+        ASC(str[i], str_out[i])
+    }
+    fwrite(str_out, 1, len + 1, stdout);
+    if(visit->r != NULL){
+        inorder_all(visit->r);
     }
 }
 
@@ -378,7 +385,7 @@ void RB_Insert(node* z){
     RB_Insert_Fixup(z);
 }
 
-#define SIZE 4096
+#define SIZE 12288
 static char* H = NULL;
 static unsigned int h = 0;
 
@@ -498,16 +505,27 @@ uint8_t aggiorna_vincoli_recursive_mask(node* x, uint64_t accettabili[]){ //retu
     return x->scartata & x->grey_l & x->grey_r;
 }
 
-void ripristina_vincoli(node* x){
-    x->scartata = 0;
-    x->grey_l = 0;
-    x->grey_r = 0;
+uint8_t reset_vincoli_recursive(node* x, uint64_t accettabili[]){
+    if(scarta_update((int8_t *) x+sizeof(node),accettabili)){
+        x->scartata = 1;
+        filtrate_counter--;
+    }
+    else{
+        x->scartata = 0;
+    }
     if(x->l != NULL){
-        ripristina_vincoli(x->l);
+        x->grey_l = reset_vincoli_recursive(x->l, accettabili);
+    }
+    else{
+        x->grey_l = 1;
     }
     if(x->r != NULL){
-        ripristina_vincoli(x->r);
+        x->grey_r = reset_vincoli_recursive(x->r, accettabili);
     }
+    else{
+        x->grey_r = 1;
+    }
+    return x->scartata & x->grey_l & x->grey_r;
 }
 
 //Il main funge da parser e gestisce le chiamate alle funzioni necessarie per gestire le strutture dati
@@ -515,7 +533,7 @@ void ripristina_vincoli(node* x){
 int main(){
     //freopen("/home/giacomo/Scaricati/n128000_k5_g200_test1.txt","r",stdin);
     //clock_t begin = clock();
-    int s = 0, set = 0, sc = 0;
+    int s = 0, set = 2, sc = 0;
     long unsigned int tries = 0;
     int8_t command = 0;
     s = scanf("%d",&len);
@@ -540,30 +558,32 @@ int main(){
         if(command == 'n'){ //+nuova_partita
             Global_sbagliate = 0ULL; //ripristino i counter globali
             memset(Global_counter,0,64);
-            if(end != 2){ //la prima partita non ho bisogno di ripristinare i vincoli
-                ripristina_vincoli(root);
-            }
             filtrate_counter = total_counter;
             memset(accettabili,UINT8_MAX,len*8); //tutte le lettere sono accettabili in ogni posizione
             end = 0; //flaggo l'inizio della partita
-            set = 1;
+            set = 2; //set == 2 per reset delle scartate
             command = get_input(reference); //assegno la reference
             s = scanf("%lu",&tries); //assegno i tentativi
             temp[0] = getchar(); //leggo anche \n
             command = get_input(temp);
         }
         else if(command == 's'){ //stampa filtrate
-            if(!set){
+            if(set == 0){
                 quick_inorder(root);
             }
-            else{
-                inorder(root);
+            else if(set == 1){
+                inorder_scartate(root);
+            }
+            else if(set == 2){
+                inorder_all(root);
             }
             command = get_input(temp);
         }
         else if(command  == 'i'){ //inserisci inizio
             command = get_input(temp);
-            set = 1;
+            if(set == 0){
+                set = 1; //set == 1 per aggiustare inserimenti
+            }
             while(command == 0){
                 total_counter++;
                 if(end == 0){
@@ -590,21 +610,25 @@ int main(){
                     }
                     else{
                         if(filtrate_counter != 1){
-                            if(set == 1){
+                            if(set == 0){ //ordinaria amministrazione
+                                if(updated_count){
+                                    aggiorna_vincoli_recursive(root,accettabili);
+                                }
+                                else{
+                                    aggiorna_vincoli_recursive_mask(root,accettabili);
+                                }
+                            }
+                            else if(set == 2){ //inizio partita
+                                set = 0;
+                                reset_vincoli_recursive(root,accettabili);
+                            }
+                            else if(set == 1){ //inserimento
                                 set = 0;
                                 if(updated_count){
                                     set_vincoli_recursive(root,accettabili);
                                 }
                                 else{
                                     set_vincoli_recursive_mask(root,accettabili);
-                                }
-                            }
-                            else{
-                                if(updated_count){
-                                    aggiorna_vincoli_recursive(root,accettabili);
-                                }
-                                else{
-                                    aggiorna_vincoli_recursive_mask(root,accettabili);
                                 }
                             }
                         }
