@@ -22,40 +22,40 @@ static uint8_t Global_counter[64];
 static int8_t* vincoli_aggiornati;
 static uint64_t Global_sbagliate = 0ULL;
 static int end=2; //end = 2 indica la prima partita //end = 1 fine di una partita
-static uint8_t updated_count;
+static uint8_t updated_count = 0;
 
 //questa parte del codice gestisce l'acquisizione, il confronto e la classificazione delle stringhe nel dizionario (filtrate/scartate)
 
-uint8_t get_input(uint8_t temp[]){
-    char c;
-    uint8_t flag = 0;
+int8_t get_input(int8_t temp[]){
+    int8_t c;
+    int8_t flag = 0;
     int i = 0, k;
-    c = getc(stdin);
+    c = getchar();
     if(c == EOF){
-        return 'e';
+        return -1;
     }
     while(c != '\n'){
         if(c == '+'){
-            c = getc(stdin);
+            c = getchar();
             flag = c; //il flag è la prima lettera del comando dopo il +
         }
         else if(flag == 0){
-            POS(c,k);
+            POS(c,k)
             temp[i] = k;
             i++;
         }
-        c = getc(stdin);
+        c = getchar();
     }
     return flag;
 }
 
-void confronta(uint8_t p[], uint8_t r[], char out[], uint64_t accettabili[]){ //genera l'output del confronto tra parole (r corretta, p da verificare)
+void confronta(int8_t p[], int8_t r[], char out[], uint64_t accettabili[]){ //genera l'output del confronto tra parole (r corretta, p da verificare)
     uint8_t temp_counter[64], counter[64];
     uint64_t j = 1ULL;
     uint64_t aggiorna = 0ULL;
     memset(counter,0,64);
     memset(temp_counter,0,64);
-    int v = 0, i = 0, k;
+    int v = 0, i = 0, k=0;
     end = 1;
     for(i=0;i<len;i++){
         j = 1ULL << p[i];
@@ -122,12 +122,11 @@ void confronta(uint8_t p[], uint8_t r[], char out[], uint64_t accettabili[]){ //
         }
     }
     vincoli_aggiornati[v] = -1;
-    return;
 }
 
-int scarta_update(uint8_t p[], uint64_t accettabili[]){
+int scarta_update(int8_t p[], uint64_t accettabili[]){
     int i=0, k=0;
-    uint64_t j;
+    uint64_t j = 0;
     uint8_t counter[64];
     memset(counter,0,64);
     while(i<len){
@@ -153,9 +152,9 @@ int scarta_update(uint8_t p[], uint64_t accettabili[]){
     return 0;
 }
 
-int scarta_updated_mask(uint8_t p[], uint64_t accettabili[]){
+int scarta_updated_mask(int8_t p[], uint64_t accettabili[]){
     int i=0;
-    uint64_t j;
+    uint64_t j = 0;
     while(i<len){
         j = 1ULL << p[i];
         if((j & accettabili[i]) == 0){
@@ -166,8 +165,8 @@ int scarta_updated_mask(uint8_t p[], uint64_t accettabili[]){
     return 0;
 }
 
-int scarta(uint8_t p[], uint8_t r[], uint64_t accettabili[]){
-    uint64_t j;
+int scarta(int8_t p[], int8_t r[], uint64_t accettabili[]){
+    uint64_t j = 0;
     uint64_t checklist = 0ULL;
     int8_t to_check[2*len+1];
     uint8_t counter[64];
@@ -231,36 +230,36 @@ void quick_inorder(node* visit){
     }
     if(!visit->scartata){
         char* str = (char*) visit+sizeof(node);
-        int i,k;
+        int i;
+        char str_out[len+1];
+        str_out[len] = '\n';
         for(i=0; i<len; i++){
-            ASC(str[i],k);
-            putc(k,stdout);
+            ASC(str[i],str_out[i])
         }
-        printf("\n");
+        fwrite(str_out,1,len+1,stdout);
     }
     if(!visit->grey_r){
         quick_inorder(visit->r);
     }
-    return;
 }
 
 void inorder(node* visit){
     if(visit->l != NULL){
         inorder(visit->l);
     }
-    if(!visit->scartata){
-        char* str = (char*) visit+sizeof(node);
-        int i, k;
-        for(i=0; i<len; i++){
-            ASC(str[i],k);
-            putc(k,stdout);
+    if(!visit->scartata) {
+        char *str = (char *) visit + sizeof(node);
+        int i;
+        char str_out[len + 1];
+        str_out[len] = '\n';
+        for (i = 0; i < len; i++) {
+            ASC(str[i], str_out[i])
         }
-        printf("\n");
+        fwrite(str_out, 1, len + 1, stdout);
     }
     if(visit->r != NULL){
         inorder(visit->r);
     }
-    return;
 }
 
 void left_rotate(node* x){
@@ -352,16 +351,14 @@ void RB_Insert_Fixup(node* x){
         }
     }
     root->color = BLACK;
-    return;
 }
 
 void RB_Insert(node* z){
     node* y = NULL;
-    node* x;
-    x = root;
+    node* x = root;
     while(x != NULL) {
         y = x;
-        if (memcmp((char*) z+sizeof(node),(char*) x+sizeof(node),len)<0) {
+        if (memcmp((int8_t *) z+sizeof(node),(int8_t *) x+sizeof(node),len)<0) {
             x = x->l;
         }
         else {
@@ -372,7 +369,7 @@ void RB_Insert(node* z){
     if(y == NULL){
         root = z;
     }
-    else if(memcmp((char*) z+sizeof(node),(char*) y+sizeof(node),len)<0){
+    else if(memcmp((int8_t *) z+sizeof(node),(int8_t *) y+sizeof(node),len)<0){
         y->l = z;
     }
     else{
@@ -381,10 +378,20 @@ void RB_Insert(node* z){
     RB_Insert_Fixup(z);
 }
 
-void create_and_insert(uint8_t* str, uint8_t scartata){
-    node *a;
-    a = (node*)malloc(sizeof(node)+len);
-    memcpy((uint8_t *) a + sizeof(node),str,len);
+#define SIZE 4096
+static char* H = NULL;
+static unsigned int h = 0;
+
+void create_and_insert(int8_t* str, int8_t scartata){
+    if(h % SIZE == 0){
+        //printf("MALLOC\n");
+        H = (char*) malloc((sizeof(node)+len) * SIZE);
+        h = 0;
+    }
+    //printf("%d\n",h);
+    node* a = (node*) (H + (sizeof(node) + len)*h);
+    h++;
+    memcpy((int8_t *) a + sizeof(node),str,len);
     a->p = NULL;
     a->l = NULL;
     a->r = NULL;
@@ -399,14 +406,13 @@ void create_and_insert(uint8_t* str, uint8_t scartata){
         a->color = RED;
         RB_Insert(a);
     }
-    return;
 }
 
-int binary_search(uint8_t * target){//ricerca binaria in BST, restituisce 1 se trovato, 0 altrimenti
+int binary_search(int8_t * target){//ricerca binaria in BST, restituisce 1 se trovato, 0 altrimenti
     node* temp = root;
     int c = 1;
     while(c!=0 && temp != NULL){
-        c = memcmp(target,(uint8_t *) temp+sizeof(node),len);
+        c = memcmp(target,(int8_t *) temp+sizeof(node),len);
         if(c < 0){
             temp = temp->l;
         }
@@ -425,7 +431,7 @@ int binary_search(uint8_t * target){//ricerca binaria in BST, restituisce 1 se t
 //questa parte del codice implementa la gestione del dizionario e della struttura secondaria (linked list)
 
 uint8_t set_vincoli_recursive(node* x, uint64_t accettabili[]){
-    if(!x->scartata && scarta_update((uint8_t *) x+sizeof(node),accettabili)){
+    if(!x->scartata && scarta_update((int8_t *) x+sizeof(node),accettabili)){
         x->scartata = 1;
         filtrate_counter--;
     }
@@ -445,7 +451,7 @@ uint8_t set_vincoli_recursive(node* x, uint64_t accettabili[]){
 }
 
 uint8_t set_vincoli_recursive_mask(node* x, uint64_t accettabili[]){
-    if(!x->scartata && scarta_updated_mask((uint8_t *) x+sizeof(node),accettabili)){
+    if(!x->scartata && scarta_updated_mask((int8_t *) x+sizeof(node),accettabili)){
         x->scartata = 1;
         filtrate_counter--;
     }
@@ -465,7 +471,7 @@ uint8_t set_vincoli_recursive_mask(node* x, uint64_t accettabili[]){
 }
 
 uint8_t aggiorna_vincoli_recursive(node* x, uint64_t accettabili[]){ //return 1 se da li a sotto l'albero è tutto composto di scartate (grey)
-    if(!x->scartata && scarta_update((uint8_t *) x+sizeof(node),accettabili)){
+    if(!x->scartata && scarta_update((int8_t *) x+sizeof(node),accettabili)){
         x->scartata = 1;
         filtrate_counter--;
     }
@@ -479,7 +485,7 @@ uint8_t aggiorna_vincoli_recursive(node* x, uint64_t accettabili[]){ //return 1 
 }
 
 uint8_t aggiorna_vincoli_recursive_mask(node* x, uint64_t accettabili[]){ //return 1 se da li a sotto l'albero è tutto composto di scartate (grey)
-    if(!x->scartata && scarta_updated_mask((uint8_t *) x+sizeof(node),accettabili)){
+    if(!x->scartata && scarta_updated_mask((int8_t *) x+sizeof(node),accettabili)){
         x->scartata = 1;
         filtrate_counter--;
     }
@@ -502,17 +508,6 @@ void ripristina_vincoli(node* x){
     if(x->r != NULL){
         ripristina_vincoli(x->r);
     }
-    return;
-}
-
-void RB_del(node* geri){
-    if(geri->l != NULL){
-        RB_del(geri->l);
-    }
-    if(geri->r != NULL){
-        RB_del(geri->r);
-    }
-    free(geri);
 }
 
 //Il main funge da parser e gestisce le chiamate alle funzioni necessarie per gestire le strutture dati
@@ -520,26 +515,28 @@ void RB_del(node* geri){
 int main(){
     //freopen("/home/giacomo/Scaricati/n128000_k5_g200_test1.txt","r",stdin);
     //clock_t begin = clock();
-    int tries, s = 0, set = 0, sc = 0;
-    char command = 0;
+    int s = 0, set = 0, sc = 0;
+    long unsigned int tries = 0;
+    int8_t command = 0;
     s = scanf("%d",&len);
     if(s == 0){
         return 1;
     }
-    uint8_t temp[len];
-    uint8_t reference[len];
+    int8_t temp[len];
+    int8_t reference[len];
     char output[len];
     int8_t vi[len+1];
     vincoli_aggiornati = vi;
+    memset(vincoli_aggiornati,-1,len+1);
     uint64_t accettabili[len]; //vettore di bitmask per segnare le lettere accettate/vietate/obbligatorie in ogni pos
-    temp[0] = getc(stdin); //leggo \n che scanf ignora
+    temp[0] = getchar(); //leggo \n che scanf ignora
     command = get_input(temp);
     while(command == 0){ //inserimento iniziale di parole
         create_and_insert(temp,0);
         total_counter++;
         command = get_input(temp);
     }
-    while(command != 'e'){
+    while(command != -1){
         if(command == 'n'){ //+nuova_partita
             Global_sbagliate = 0ULL; //ripristino i counter globali
             memset(Global_counter,0,64);
@@ -551,8 +548,8 @@ int main(){
             end = 0; //flaggo l'inizio della partita
             set = 1;
             command = get_input(reference); //assegno la reference
-            s = scanf("%d",&tries); //assegno i tentativi
-            temp[0] = getc(stdin); //leggo anche \n
+            s = scanf("%lu",&tries); //assegno i tentativi
+            temp[0] = getchar(); //leggo anche \n
             command = get_input(temp);
         }
         else if(command == 's'){ //stampa filtrate
@@ -627,7 +624,6 @@ int main(){
             }
         }
     }
-    //RB_del(root);
     /*clock_t end = clock();
     double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
     FILE* fp = fopen("/home/giacomo/Scaricati/time_spent.txt","w");
