@@ -7,6 +7,7 @@
  * of words, tell the user which letter in the guess are correct, which one are wrong and which one are in the wrong position.
  * Every turn the program should keep count of the strings that are compatible with the suggestions given to the user and
  * be able to print those strings in order.
+ * Strings can be added to the dictionary at the end of every turn.
  * The dictionary is implemented as a red black tree and the constraints on the strings are marked on hash tables.
  * Hash tables of boolean are implemented as long ints, while hash tables of integers are implemented as vectors.
  * DISCLAIMER: this was an individual project and the mark was assigned only on performances, so readability was not
@@ -19,13 +20,13 @@
 //#include <time.h>
 
 //the following macros are used as hash functions in the bitmask. H(c): 64 possible characters -> [0,63] (position of bit in bitflag)
-//POS is character -> hash of character
+//POS is h: character -> hash of character
 #define POS(A,B) if(A <= 'Z' && A >= 'A') B = A - 'A' + 11;\
 else if(A <= 'z' && A >= 'a') B = A - 'a' + 38;\
 else if(A >= '0' && A <= '9') B = A - '0' + 1;\
 else if(A == '_') B = 37;\
 else B = 0;
-//POS is hash of character -> character
+//POS is h^-1: hash of character -> character
 #define ASC(A,B) if(A >= 38) B = A - 38 + 'a';\
 else if(A >= 11 && A <= 36) B = A - 11 + 'A'; \
 else if(A>= 1 && A <= 10) B = A - 1 + '0';    \
