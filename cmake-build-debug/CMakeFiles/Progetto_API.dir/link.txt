@@ -1,0 +1,3 @@
+"C:\Program Files\JetBrains\CLion 2022.2.1\bin\cmake\win\bin\cmake.exe" -E rm -f CMakeFiles\Progetto_API.dir/objects.a
+C:\PROGRA~1\JETBRA~1\CLION2~1.1\bin\mingw\bin\ar.exe qc CMakeFiles\Progetto_API.dir/objects.a @CMakeFiles\Progetto_API.dir\objects1.rsp
+C:\PROGRA~1\JETBRA~1\CLION2~1.1\bin\mingw\bin\gcc.exe -g -Wl,--whole-archive CMakeFiles\Progetto_API.dir/objects.a -Wl,--no-whole-archive -o Progetto_API.exe -Wl,--out-implib,libProgetto_API.dll.a -Wl,--major-image-version,0,--minor-image-version,0 @CMakeFiles\Progetto_API.dir\linklibs.rsp

@@ -1,68 +1,85 @@
+/* Project: Final Project for API class in Politecnico di Milano
+ * Topics of Exam: Algorithms, data structures and automata theory
+ * Mark: 30/30
+ * @author: Giacomo Brunetta
+ * Date: 12/9/2022
+ * Description: The following code handles a game in which the user has to guess a word. The program must handle a dictionary
+ * of words, tell the user which letter in the guess are correct, which one are wrong and which one are in the wrong position.
+ * Every turn the program should keep count of the strings that are compatible with the suggestions given to the user and
+ * be able to print those strings in order.
+ * The dictionary is implemented as a red black tree and the constraints on the strings are marked on hash tables.
+ * Hash tables of boolean are implemented as long ints, while hash tables of integers are implemented as vectors.
+ * DISCLAIMER: this was an individual project and the mark was assigned only on performances, so readability was not
+ * a goal during the coding process. English comments are provided before the definition of each function.
+*/
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 //#include <time.h>
 
+//the following macros are used as hash functions in the bitmask. H(c): 64 possible characters -> [0,63] (position of bit in bitflag)
+//POS is character -> hash of character
 #define POS(A,B) if(A <= 'Z' && A >= 'A') B = A - 'A' + 11;\
 else if(A <= 'z' && A >= 'a') B = A - 'a' + 38;\
 else if(A >= '0' && A <= '9') B = A - '0' + 1;\
 else if(A == '_') B = 37;\
 else B = 0;
-
+//POS is hash of character -> character
 #define ASC(A,B) if(A >= 38) B = A - 38 + 'a';\
 else if(A >= 11 && A <= 36) B = A - 11 + 'A'; \
 else if(A>= 1 && A <= 10) B = A - 1 + '0';    \
 else if(A == 37) B = '_';                     \
 else B = '-';
 
-static int len = 0;
-static unsigned int filtrate_counter = 0, total_counter = 0;
+//global variables are defined here
+static int len = 0; //length of strings, given as input
+static unsigned int filtrate_counter = 0, total_counter = 0; //counters to return as output
 static uint8_t Global_counter[64];
 static int8_t* vincoli_aggiornati;
 static uint64_t Global_sbagliate = 0ULL;
-static int end=2; //end = 2 indica la prima partita //end = 1 fine di una partita
-static uint8_t updated_count = 0;
+static int end=2; //end = 2 is the first match, end = 1 end of a match, end = 0 other
+static uint8_t updated_count;
 
-//questa parte del codice gestisce l'acquisizione, il confronto e la classificazione delle stringhe nel dizionario (filtrate/scartate)
-
-int8_t get_input(int8_t temp[]){
-    int8_t c;
-    int8_t flag = 0;
+//this part of the code handles getting, comparing and sorting strings in the dictionary (filtered/discarded)
+uint8_t get_input(uint8_t temp[]){ //reads input and saves the hashed version of the string (by hashing every character)
+    char c;
+    uint8_t flag = 0;
     int i = 0, k;
-    c = getchar();
+    c = getc(stdin);
     if(c == EOF){
-        return -1;
+        return 'e';
     }
     while(c != '\n'){
         if(c == '+'){
-            c = getchar();
+            c = getc(stdin);
             flag = c; //il flag è la prima lettera del comando dopo il +
         }
         else if(flag == 0){
-            POS(c,k)
+            POS(c,k);
             temp[i] = k;
             i++;
         }
-        c = getchar();
+        c = getc(stdin);
     }
     return flag;
 }
 
-void confronta(int8_t p[], int8_t r[], char out[], uint64_t accettabili[]){ //genera l'output del confronto tra parole (r corretta, p da verificare)
+//compares string p with reference string r and updates constraints on the dictionary
+void confronta(uint8_t p[], uint8_t r[], char out[], uint64_t accettabili[]){
     uint8_t temp_counter[64], counter[64];
     uint64_t j = 1ULL;
     uint64_t aggiorna = 0ULL;
     memset(counter,0,64);
     memset(temp_counter,0,64);
-    int v = 0, i = 0, k=0;
+    int v = 0, i = 0, k;
     end = 1;
     for(i=0;i<len;i++){
         j = 1ULL << p[i];
         if(p[i] == r[i]){
-            out[i] = '+'; //se è corretta lo segno subito
-            counter[p[i]]++; //conto le lettere di p in posizione corretta
-            if(counter[p[i]] > Global_counter[p[i]]){ //ho un nuovo massimo di apparizioni legali di una lettera
+            out[i] = '+'; //mark the correct letters
+            counter[p[i]]++; //count correct letters in p
+            if(counter[p[i]] > Global_counter[p[i]]){ //new max number of a letter, update constraints
                 Global_counter[p[i]] = counter[p[i]];
                 if((aggiorna & j) == 0){
                     updated_count = 1;
@@ -122,21 +139,26 @@ void confronta(int8_t p[], int8_t r[], char out[], uint64_t accettabili[]){ //ge
         }
     }
     vincoli_aggiornati[v] = -1;
+    return;
 }
 
-int scarta_update(int8_t p[], uint64_t accettabili[]){
+//discards words in the dictionary accordingly with the most recent updates of constraints
+int scarta_update(uint8_t p[], uint64_t accettabili[]){
     int i=0, k=0;
+    uint64_t j;
     uint8_t counter[64];
     memset(counter,0,64);
     while(i<len){
-        if(((1ULL << p[i]) & accettabili[i]) == 0){
+        j = 1ULL << p[i];
+        if((j & accettabili[i]) == 0){
             return 1;
         }
         counter[p[i]]++;
         i++;
     }
     while(vincoli_aggiornati[k] != -1){
-        if(((1ULL << vincoli_aggiornati[k]) & Global_sbagliate) > 0){ //il flag sbagliate mi garantisce di conoscere il numero esatto
+        j = 1ULL << vincoli_aggiornati[k];
+        if((j & Global_sbagliate) > 0){ //il flag sbagliate mi garantisce di conoscere il numero esatto
             if(counter[vincoli_aggiornati[k]] != Global_counter[vincoli_aggiornati[k]]){
                 return 1;
             }
@@ -148,34 +170,39 @@ int scarta_update(int8_t p[], uint64_t accettabili[]){
     }
     return 0;
 }
-
-int scarta_updated_mask(int8_t p[], uint64_t accettabili[]){
+//discards words in the dictionary accordingly with the most recent updates in the bitmasks
+int scarta_updated_mask(uint8_t p[], uint64_t accettabili[]){
     int i=0;
+    uint64_t j;
     while(i<len){
-        if((1ULL << p[i] & accettabili[i]) == 0){
+        j = 1ULL << p[i];
+        if((j & accettabili[i]) == 0){
             return 1;
         }
         i++;
     }
     return 0;
 }
-
-int scarta(int8_t p[], int8_t r[], uint64_t accettabili[]){
+//discards words in the dictionary accordingly with all the constraints
+int scarta(uint8_t p[], uint8_t r[], uint64_t accettabili[]){
+    uint64_t j;
     uint64_t checklist = 0ULL;
     int8_t to_check[2*len+1];
     uint8_t counter[64];
     int i = 0, k = 0;
     memset(counter,0,64);
     while(i<len){
-        if((checklist & 1ULL << r[i]) == 0){
+        j = 1ULL << r[i];
+        if((checklist & j) == 0){
             to_check[k] = r[i];
             k++;
         }
-        if((checklist & 1ULL << p[i]) == 0){
+        j = 1ULL << p[i];
+        if((checklist & j) == 0){
             to_check[k] = p[i];
             k++;
         }
-        if((1ULL << p[i] & accettabili[i]) == 0){ //mi assicuro che la lettera possa andare nella i-esima posizione
+        if((j & accettabili[i]) == 0){ //mi assicuro che la lettera possa andare nella i-esima posizione
             return 1;
         }
         counter[p[i]]++;
@@ -184,7 +211,8 @@ int scarta(int8_t p[], int8_t r[], uint64_t accettabili[]){
     to_check[k] = -1;
     k=0;
     while(to_check[k] != -1){
-        if((1ULL << to_check[k] & Global_sbagliate) > 0){ //il flag sbagliate mi garantisce di conoscere il numero esatto
+        j = 1ULL << to_check[k];
+        if((j & Global_sbagliate) > 0){ //il flag sbagliate mi garantisce di conoscere il numero esatto
             if(counter[to_check[k]] != Global_counter[to_check[k]]){
                 return 1;
             }
@@ -197,8 +225,11 @@ int scarta(int8_t p[], int8_t r[], uint64_t accettabili[]){
     return 0;
 }
 
-//questa parte del codice implementa gli Alberi Rosso Neri necessari per la creazione del dizionario
-//è seguita l'implementazione del Cormen
+//The following part implements RED BLACK trees accordingly to the textbook "Introduction to Algorithms" by T. Cormen
+//Two additional flag are added to the node. One marks discarded words, the other allows the binary visit to traverse
+// only the nodes that could be updated if a branch of the tree contains only words that are already discarded
+// (and no new words where added) that part of the
+// tree will not be visited.
 
 #define RED 0
 #define BLACK 1
@@ -221,52 +252,36 @@ void quick_inorder(node* visit){
     }
     if(!visit->scartata){
         char* str = (char*) visit+sizeof(node);
-        int i;
-        char str_out[len+1];
-        str_out[len] = '\n';
+        int i,k;
         for(i=0; i<len; i++){
-            ASC(str[i],str_out[i])
+            ASC(str[i],k);
+            putc(k,stdout);
         }
-        fwrite(str_out,1,len+1,stdout);
+        printf("\n");
     }
     if(!visit->grey_r){
         quick_inorder(visit->r);
     }
+    return;
 }
 
-void inorder_scartate(node* visit){
+void inorder(node* visit){
     if(visit->l != NULL){
-        inorder_scartate(visit->l);
+        inorder(visit->l);
     }
-    if(!visit->scartata) {
-        char *str = (char *) visit + sizeof(node);
-        int i;
-        char str_out[len + 1];
-        str_out[len] = '\n';
-        for (i = 0; i < len; i++) {
-            ASC(str[i], str_out[i])
+    if(!visit->scartata){
+        char* str = (char*) visit+sizeof(node);
+        int i, k;
+        for(i=0; i<len; i++){
+            ASC(str[i],k);
+            putc(k,stdout);
         }
-        fwrite(str_out, 1, len + 1, stdout);
+        printf("\n");
     }
     if(visit->r != NULL){
-        inorder_scartate(visit->r);
+        inorder(visit->r);
     }
-}
-
-void inorder_all(node* visit){
-    if(visit->l != NULL){
-        inorder_all(visit->l);
-    }
-    char *str = (char *) visit + sizeof(node);
-    char str_out[len + 1];
-    str_out[len] = '\n';
-    for (int i = 0; i < len; i++) {
-        ASC(str[i], str_out[i])
-    }
-    fwrite(str_out, 1, len + 1, stdout);
-    if(visit->r != NULL){
-        inorder_all(visit->r);
-    }
+    return;
 }
 
 void left_rotate(node* x){
@@ -358,14 +373,16 @@ void RB_Insert_Fixup(node* x){
         }
     }
     root->color = BLACK;
+    return;
 }
 
 void RB_Insert(node* z){
     node* y = NULL;
-    node* x = root;
+    node* x;
+    x = root;
     while(x != NULL) {
         y = x;
-        if (memcmp((int8_t *) z+sizeof(node),(int8_t *) x+sizeof(node),len)<0) {
+        if (memcmp((char*) z+sizeof(node),(char*) x+sizeof(node),len)<0) {
             x = x->l;
         }
         else {
@@ -376,7 +393,7 @@ void RB_Insert(node* z){
     if(y == NULL){
         root = z;
     }
-    else if(memcmp((int8_t *) z+sizeof(node),(int8_t *) y+sizeof(node),len)<0){
+    else if(memcmp((char*) z+sizeof(node),(char*) y+sizeof(node),len)<0){
         y->l = z;
     }
     else{
@@ -385,20 +402,10 @@ void RB_Insert(node* z){
     RB_Insert_Fixup(z);
 }
 
-#define SIZE 12288
-static char* H = NULL;
-static unsigned int h = 0;
-
-void create_and_insert(int8_t* str, int8_t scartata){
-    if(h % SIZE == 0){
-        //printf("MALLOC\n");
-        H = (char*) malloc((sizeof(node)+len) * SIZE);
-        h = 0;
-    }
-    //printf("%d\n",h);
-    node* a = (node*) (H + (sizeof(node) + len)*h);
-    h++;
-    memcpy((int8_t *) a + sizeof(node),str,len);
+void create_and_insert(uint8_t* str, uint8_t scartata){
+    node *a;
+    a = (node*)malloc(sizeof(node)+len);
+    memcpy((uint8_t *) a + sizeof(node),str,len);
     a->p = NULL;
     a->l = NULL;
     a->r = NULL;
@@ -413,13 +420,14 @@ void create_and_insert(int8_t* str, int8_t scartata){
         a->color = RED;
         RB_Insert(a);
     }
+    return;
 }
 
-int binary_search(int8_t * target){//ricerca binaria in BST, restituisce 1 se trovato, 0 altrimenti
+int binary_search(uint8_t * target){//ricerca binaria in BST, restituisce 1 se trovato, 0 altrimenti
     node* temp = root;
     int c = 1;
     while(c!=0 && temp != NULL){
-        c = memcmp(target,(int8_t *) temp+sizeof(node),len);
+        c = memcmp(target,(uint8_t *) temp+sizeof(node),len);
         if(c < 0){
             temp = temp->l;
         }
@@ -435,10 +443,12 @@ int binary_search(int8_t * target){//ricerca binaria in BST, restituisce 1 se tr
     }
 }
 
-//questa parte del codice implementa la gestione del dizionario e della struttura secondaria (linked list)
+//the following part implements RBtree visits that discard words that do not respect constraints
+//the gray_l and gray_r indicate that there are only discarded words in the left and rigth subtree of the node
+//gray bits are updated recursively using the return statements.
 
 uint8_t set_vincoli_recursive(node* x, uint64_t accettabili[]){
-    if(!x->scartata && scarta_update((int8_t *) x+sizeof(node),accettabili)){
+    if(!x->scartata && scarta_update((uint8_t *) x+sizeof(node),accettabili)){
         x->scartata = 1;
         filtrate_counter--;
     }
@@ -457,8 +467,8 @@ uint8_t set_vincoli_recursive(node* x, uint64_t accettabili[]){
     return x->scartata & x->grey_l & x->grey_r;
 }
 
-uint8_t set_vincoli_recursive_mask(node* x, uint64_t accettabili[]){
-    if(!x->scartata && scarta_updated_mask((int8_t *) x+sizeof(node),accettabili)){
+uint8_t set_vincoli_recursive_mask(node* x, uint64_t accettabili[]){ //update using bitmasks only
+    if(!x->scartata && scarta_updated_mask((uint8_t *) x+sizeof(node),accettabili)){
         x->scartata = 1;
         filtrate_counter--;
     }
@@ -477,8 +487,8 @@ uint8_t set_vincoli_recursive_mask(node* x, uint64_t accettabili[]){
     return x->scartata & x->grey_l & x->grey_r;
 }
 
-uint8_t aggiorna_vincoli_recursive(node* x, uint64_t accettabili[]){ //return 1 se da li a sotto l'albero è tutto composto di scartate (grey)
-    if(!x->scartata && scarta_update((int8_t *) x+sizeof(node),accettabili)){
+uint8_t aggiorna_vincoli_recursive(node* x, uint64_t accettabili[]){
+    if(!x->scartata && scarta_update((uint8_t *) x+sizeof(node),accettabili)){
         x->scartata = 1;
         filtrate_counter--;
     }
@@ -492,7 +502,7 @@ uint8_t aggiorna_vincoli_recursive(node* x, uint64_t accettabili[]){ //return 1 
 }
 
 uint8_t aggiorna_vincoli_recursive_mask(node* x, uint64_t accettabili[]){ //return 1 se da li a sotto l'albero è tutto composto di scartate (grey)
-    if(!x->scartata && scarta_updated_mask((int8_t *) x+sizeof(node),accettabili)){
+    if(!x->scartata && scarta_updated_mask((uint8_t *) x+sizeof(node),accettabili)){
         x->scartata = 1;
         filtrate_counter--;
     }
@@ -505,85 +515,82 @@ uint8_t aggiorna_vincoli_recursive_mask(node* x, uint64_t accettabili[]){ //retu
     return x->scartata & x->grey_l & x->grey_r;
 }
 
-uint8_t reset_vincoli_recursive(node* x, uint64_t accettabili[]){
-    if(scarta_update((int8_t *) x+sizeof(node),accettabili)){
-        x->scartata = 1;
-        filtrate_counter--;
-    }
-    else{
-        x->scartata = 0;
-    }
+void ripristina_vincoli(node* x){
+    x->scartata = 0;
+    x->grey_l = 0;
+    x->grey_r = 0;
     if(x->l != NULL){
-        x->grey_l = reset_vincoli_recursive(x->l, accettabili);
-    }
-    else{
-        x->grey_l = 1;
+        ripristina_vincoli(x->l);
     }
     if(x->r != NULL){
-        x->grey_r = reset_vincoli_recursive(x->r, accettabili);
+        ripristina_vincoli(x->r);
     }
-    else{
-        x->grey_r = 1;
-    }
-    return x->scartata & x->grey_l & x->grey_r;
+    return;
 }
 
-//Il main funge da parser e gestisce le chiamate alle funzioni necessarie per gestire le strutture dati
+void RB_del(node* geri){
+    if(geri->l != NULL){
+        RB_del(geri->l);
+    }
+    if(geri->r != NULL){
+        RB_del(geri->r);
+    }
+    free(geri);
+}
+
+//main function parses the input and creates the data structures. when the match begins a state machine selects
+//wich tasks to complete. The state is updated by input commands that start with a +
 
 int main(){
     //freopen("/home/giacomo/Scaricati/n128000_k5_g200_test1.txt","r",stdin);
     //clock_t begin = clock();
-    int s = 0, set = 2, sc = 0;
-    long unsigned int tries = 0;
-    int8_t command = 0;
+    int tries, s = 0, set = 0, sc = 0;
+    char command = 0;
     s = scanf("%d",&len);
     if(s == 0){
         return 1;
     }
-    int8_t temp[len];
-    int8_t reference[len];
+    uint8_t temp[len];
+    uint8_t reference[len];
     char output[len];
     int8_t vi[len+1];
     vincoli_aggiornati = vi;
-    memset(vincoli_aggiornati,-1,len+1);
     uint64_t accettabili[len]; //vettore di bitmask per segnare le lettere accettate/vietate/obbligatorie in ogni pos
-    temp[0] = getchar(); //leggo \n che scanf ignora
+    temp[0] = getc(stdin); //leggo \n che scanf ignora
     command = get_input(temp);
     while(command == 0){ //inserimento iniziale di parole
         create_and_insert(temp,0);
         total_counter++;
         command = get_input(temp);
     }
-    while(command != -1){
+    while(command != 'e'){
         if(command == 'n'){ //+nuova_partita
             Global_sbagliate = 0ULL; //ripristino i counter globali
             memset(Global_counter,0,64);
+            if(end != 2){ //la prima partita non ho bisogno di ripristinare i vincoli
+                ripristina_vincoli(root);
+            }
             filtrate_counter = total_counter;
             memset(accettabili,UINT8_MAX,len*8); //tutte le lettere sono accettabili in ogni posizione
             end = 0; //flaggo l'inizio della partita
-            set = 2; //set == 2 per reset delle scartate
+            set = 1;
             command = get_input(reference); //assegno la reference
-            s = scanf("%lu",&tries); //assegno i tentativi
-            temp[0] = getchar(); //leggo anche \n
+            s = scanf("%d",&tries); //assegno i tentativi
+            temp[0] = getc(stdin); //leggo anche \n
             command = get_input(temp);
         }
         else if(command == 's'){ //stampa filtrate
-            if(set == 0){
+            if(!set){
                 quick_inorder(root);
             }
-            else if(set == 1){
-                inorder_scartate(root);
-            }
-            else if(set == 2){
-                inorder_all(root);
+            else{
+                inorder(root);
             }
             command = get_input(temp);
         }
         else if(command  == 'i'){ //inserisci inizio
             command = get_input(temp);
-            if(set == 0){
-                set = 1; //set == 1 per aggiustare inserimenti
-            }
+            set = 1;
             while(command == 0){
                 total_counter++;
                 if(end == 0){
@@ -610,25 +617,21 @@ int main(){
                     }
                     else{
                         if(filtrate_counter != 1){
-                            if(set == 0){ //ordinaria amministrazione
-                                if(updated_count){
-                                    aggiorna_vincoli_recursive(root,accettabili);
-                                }
-                                else{
-                                    aggiorna_vincoli_recursive_mask(root,accettabili);
-                                }
-                            }
-                            else if(set == 2){ //inizio partita
-                                set = 0;
-                                reset_vincoli_recursive(root,accettabili);
-                            }
-                            else if(set == 1){ //inserimento
+                            if(set == 1){
                                 set = 0;
                                 if(updated_count){
                                     set_vincoli_recursive(root,accettabili);
                                 }
                                 else{
                                     set_vincoli_recursive_mask(root,accettabili);
+                                }
+                            }
+                            else{
+                                if(updated_count){
+                                    aggiorna_vincoli_recursive(root,accettabili);
+                                }
+                                else{
+                                    aggiorna_vincoli_recursive_mask(root,accettabili);
                                 }
                             }
                         }
@@ -648,6 +651,7 @@ int main(){
             }
         }
     }
+    //RB_del(root);
     /*clock_t end = clock();
     double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
     FILE* fp = fopen("/home/giacomo/Scaricati/time_spent.txt","w");
