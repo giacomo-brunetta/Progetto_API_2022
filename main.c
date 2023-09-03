@@ -236,7 +236,7 @@ typedef struct nodo{
     struct nodo* l;
     struct nodo* r;
     uint8_t color:1;
-    uint8_t scartata:1;
+    uint8_t discarded:1;
     uint8_t grey_l:1;
     uint8_t grey_r:1;
 }node;
@@ -247,7 +247,7 @@ void quick_inorder(node* visit){
     if(!visit->grey_l){
         quick_inorder(visit->l);
     }
-    if(!visit->scartata){
+    if(!visit->discarded){
         char* str = (char*) visit+sizeof(node);
         int i,k;
         for(i=0; i<len; i++){
@@ -266,7 +266,7 @@ void inorder(node* visit){
     if(visit->l != NULL){
         inorder(visit->l);
     }
-    if(!visit->scartata){
+    if(!visit->discarded){
         char* str = (char*) visit+sizeof(node);
         int i, k;
         for(i=0; i<len; i++){
@@ -404,7 +404,7 @@ void create_and_insert(uint8_t* str, uint8_t scartata){
     a->p = NULL;
     a->l = NULL;
     a->r = NULL;
-    a->scartata = scartata;
+    a->discarded = scartata;
     a->grey_l = 0;
     a->grey_r = 0;
     if(root == NULL){
@@ -443,8 +443,8 @@ int binary_search(uint8_t * target){// 1 if found, 0 otherwise
 //gray bits are updated recursively using the return statements.
 
 uint8_t set_constraints(node* x, uint64_t accettabili[]){
-    if(!x->scartata && discard_words_updated_constraints_only((uint8_t *) x + sizeof(node), accettabili)){
-        x->scartata = 1;
+    if(!x->discarded && discard_words_updated_constraints_only((uint8_t *) x + sizeof(node), accettabili)){
+        x->discarded = 1;
         filtered_strings_counter--;
     }
     if(x->l != NULL){
@@ -459,12 +459,12 @@ uint8_t set_constraints(node* x, uint64_t accettabili[]){
     else{
         x->grey_r = 1;
     }
-    return x->scartata & x->grey_l & x->grey_r;
+    return x->discarded & x->grey_l & x->grey_r;
 }
 
 uint8_t set_constraints_mask_only(node* x, uint64_t accettabili[]){ //update using bitmasks only
-    if(!x->scartata && discard_words_updated_mask_only((uint8_t *) x + sizeof(node), accettabili)){
-        x->scartata = 1;
+    if(!x->discarded && discard_words_updated_mask_only((uint8_t *) x + sizeof(node), accettabili)){
+        x->discarded = 1;
         filtered_strings_counter--;
     }
     if(x->l != NULL){
@@ -479,12 +479,12 @@ uint8_t set_constraints_mask_only(node* x, uint64_t accettabili[]){ //update usi
     else{
         x->grey_r = 1;
     }
-    return x->scartata & x->grey_l & x->grey_r;
+    return x->discarded & x->grey_l & x->grey_r;
 }
 
 uint8_t update_constraints(node* x, uint64_t accettabili[]){
-    if(!x->scartata && discard_words_updated_constraints_only((uint8_t *) x + sizeof(node), accettabili)){
-        x->scartata = 1;
+    if(!x->discarded && discard_words_updated_constraints_only((uint8_t *) x + sizeof(node), accettabili)){
+        x->discarded = 1;
         filtered_strings_counter--;
     }
     if(!x->grey_l){
@@ -493,12 +493,12 @@ uint8_t update_constraints(node* x, uint64_t accettabili[]){
     if(!x->grey_r){
         x->grey_r = update_constraints(x->r, accettabili);
     }
-    return x->scartata & x->grey_l & x->grey_r;
+    return x->discarded & x->grey_l & x->grey_r;
 }
 
 uint8_t update_constraints_mask_only(node* x, uint64_t accettabili[]){
-    if(!x->scartata && discard_words_updated_mask_only((uint8_t *) x + sizeof(node), accettabili)){
-        x->scartata = 1;
+    if(!x->discarded && discard_words_updated_mask_only((uint8_t *) x + sizeof(node), accettabili)){
+        x->discarded = 1;
         filtered_strings_counter--;
     }
     if(!x->grey_l){
@@ -507,11 +507,11 @@ uint8_t update_constraints_mask_only(node* x, uint64_t accettabili[]){
     if(!x->grey_r){
         x->grey_r = update_constraints_mask_only(x->r, accettabili);
     }
-    return x->scartata & x->grey_l & x->grey_r;
+    return x->discarded & x->grey_l & x->grey_r;
 }
 
 void reset_constraints(node* x){
-    x->scartata = 0;
+    x->discarded = 0;
     x->grey_l = 0;
     x->grey_r = 0;
     if(x->l != NULL){
