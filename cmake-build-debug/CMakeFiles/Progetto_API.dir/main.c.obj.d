@@ -1,5 +1,5 @@
 CMakeFiles/Progetto_API.dir/main.c.obj: \
- C:\Users\jackb\CLionProjects\Progetto_API_2022\main.c \
+ C:\Users\jackb\Documents\GitHub\Progetto_API_2022\main.c \
  C:/PROGRA~1/JETBRA~1/CLION2~1.1/bin/mingw/x86_64-w64-mingw32/include/stdio.h \
  C:/PROGRA~1/JETBRA~1/CLION2~1.1/bin/mingw/x86_64-w64-mingw32/include/corecrt_stdio_config.h \
  C:/PROGRA~1/JETBRA~1/CLION2~1.1/bin/mingw/x86_64-w64-mingw32/include/corecrt.h \

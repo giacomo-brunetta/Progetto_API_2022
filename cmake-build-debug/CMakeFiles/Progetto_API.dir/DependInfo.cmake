@@ -8,7 +8,7 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "C:/Users/jackb/CLionProjects/Progetto_API_2022/main.c" "CMakeFiles/Progetto_API.dir/main.c.obj" "gcc" "CMakeFiles/Progetto_API.dir/main.c.obj.d"
+  "C:/Users/jackb/Documents/GitHub/Progetto_API_2022/main.c" "CMakeFiles/Progetto_API.dir/main.c.obj" "gcc" "CMakeFiles/Progetto_API.dir/main.c.obj.d"
   )
 
 # Targets to which this target links.

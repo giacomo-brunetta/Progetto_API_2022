@@ -64,7 +64,7 @@ uint8_t get_input(uint8_t temp[]){ //reads input and saves the hashed version of
 }
 
 //compares string p with reference string r and updates constraints on the dictionary
-void compate_strings(uint8_t p[], uint8_t r[], char out[], uint64_t acceptable_letters[]){
+void compare_strings(uint8_t p[], uint8_t r[], char out[], uint64_t acceptable_letters[]){
     uint8_t temp_counter[64], counter[64];
     uint64_t j = 1ULL;
     uint64_t aggiorna = 0ULL;
@@ -557,7 +557,7 @@ int main(){
         command = get_input(temp);
     }
     while(command != 'e'){
-        if(command == 'n'){
+        if(command == 'n'){ //new match
             letters_not_in_word = 0ULL;
             memset(letters_tally_table, 0, 64);
             if(state != 2){
@@ -604,7 +604,7 @@ int main(){
             while(command == 0 && state == 0 && tries > 0){
                 if(binary_search(temp)){
                     updated_count = 0;
-                    compate_strings(temp, reference, output, acceptable_letters);
+                    compare_strings(temp, reference, output, acceptable_letters);
                     if(state == 1){
                         printf("ok\n");
                     }
