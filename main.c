@@ -7,17 +7,14 @@
  * of words, tell the user which letter in the guess are correct, which one are wrong and which one are in the wrong position.
  * Every turn the program should keep count of the strings that are compatible with the suggestions given to the user and
  * be able to print those strings in order.
- * Strings can be added to the dictionary at the end of every turn.
+ * Strings can be added to the dictionary at the state of every turn.
  * The dictionary is implemented as a red black tree and the constraints on the strings are marked on hash tables.
  * Hash tables of boolean are implemented as long ints, while hash tables of integers are implemented as vectors.
- * DISCLAIMER: this was an individual project and the mark was assigned only on performances, so readability was not
- * a goal during the coding process. English comments are provided before the definition of each function.
 */
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-//#include <time.h>
 
 //the following macros are used as hash functions in the bitmask. H(c): 64 possible characters -> [0,63] (position of bit in bitflag)
 //POS is h: character -> hash of character
@@ -26,7 +23,7 @@ else if(A <= 'z' && A >= 'a') B = A - 'a' + 38;\
 else if(A >= '0' && A <= '9') B = A - '0' + 1;\
 else if(A == '_') B = 37;\
 else B = 0;
-//POS is h^-1: hash of character -> character
+//ASC is h^-1: hash of character -> character
 #define ASC(A,B) if(A >= 38) B = A - 38 + 'a';\
 else if(A >= 11 && A <= 36) B = A - 11 + 'A'; \
 else if(A>= 1 && A <= 10) B = A - 1 + '0';    \
@@ -35,11 +32,11 @@ else B = '-';
 
 //global variables are defined here
 static int len = 0; //length of strings, given as input
-static unsigned int filtrate_counter = 0, total_counter = 0; //counters to return as output
-static uint8_t Global_counter[64];
-static int8_t* vincoli_aggiornati;
-static uint64_t Global_sbagliate = 0ULL;
-static int end=2; //end = 2 is the first match, end = 1 end of a match, end = 0 other
+static unsigned int filtered_strings_counter = 0, total_counter = 0; //counters to return as output
+static uint8_t letters_tally_table[64];
+static int8_t* updated_constraints;
+static uint64_t letters_not_in_word = 0ULL;
+static int state=2; //state = 2 is the first match, state = 1 state of a match, state = 0 other
 static uint8_t updated_count;
 
 //this part of the code handles getting, comparing and sorting strings in the dictionary (filtered/discarded)
@@ -54,7 +51,7 @@ uint8_t get_input(uint8_t temp[]){ //reads input and saves the hashed version of
     while(c != '\n'){
         if(c == '+'){
             c = getc(stdin);
-            flag = c; //il flag è la prima lettera del comando dopo il +
+            flag = c; //the command is identified by the first letter after the +
         }
         else if(flag == 0){
             POS(c,k);
@@ -67,52 +64,52 @@ uint8_t get_input(uint8_t temp[]){ //reads input and saves the hashed version of
 }
 
 //compares string p with reference string r and updates constraints on the dictionary
-void confronta(uint8_t p[], uint8_t r[], char out[], uint64_t accettabili[]){
+void compate_strings(uint8_t p[], uint8_t r[], char out[], uint64_t acceptable_letters[]){
     uint8_t temp_counter[64], counter[64];
     uint64_t j = 1ULL;
     uint64_t aggiorna = 0ULL;
     memset(counter,0,64);
     memset(temp_counter,0,64);
     int v = 0, i = 0, k;
-    end = 1;
+    state = 1;
     for(i=0;i<len;i++){
         j = 1ULL << p[i];
         if(p[i] == r[i]){
             out[i] = '+'; //mark the correct letters
             counter[p[i]]++; //count correct letters in p
-            if(counter[p[i]] > Global_counter[p[i]]){ //new max number of a letter, update constraints
-                Global_counter[p[i]] = counter[p[i]];
+            if(counter[p[i]] > letters_tally_table[p[i]]){ //new max number of a letter, update constraints
+                letters_tally_table[p[i]] = counter[p[i]];
                 if((aggiorna & j) == 0){
                     updated_count = 1;
-                    vincoli_aggiornati[v] = p[i];
+                    updated_constraints[v] = p[i];
                     v++;
                     aggiorna |= j;
                 }
             }
-            if(accettabili[i] != j){
-                accettabili[i] = j; //imposto vincolo globale per accettare solo una lettera nella i-esima posizione
+            if(acceptable_letters[i] != j){
+                acceptable_letters[i] = j; //mark the letter as the only acceptable letter in position i
             }
         }
         else{
-            end = 0;
+            state = 0;
             out[i] = 0;
-            temp_counter[r[i]]++; //segno le lettere di r con un mismatch in p, poi le uso per le |
-            if((accettabili[i] & j) > 0){
-                accettabili[i] &= ~j; //apprendo che la lettera non è ammessa in quella posizione NB j è ancora flaggato da p[i]
+            temp_counter[r[i]]++; //mark the letters of r with a mismatch in p
+            if((acceptable_letters[i] & j) > 0){
+                acceptable_letters[i] &= ~j; //mark the letter as not acceptable in ith position
             }
         }
     }
-    for(i=0;i<len;i++){ //scorro p e assegno le caselle / e |
+    for(i=0;i<len;i++){ //assign / and |
         if(out[i] == 0){
             j = 1ULL << p[i];
-            if(temp_counter[p[i]] > 0){ //assegno le giuste in pos sbagliata
+            if(temp_counter[p[i]] > 0){ //right letters in wrong position
                 out[i] = '|';
-                counter[p[i]]++; //conto quelle giuste in pos sbagliata
+                counter[p[i]]++;
                 temp_counter[p[i]]--;
-                if(counter[p[i]] > Global_counter[p[i]]){ //ho un nuovo massimo di apparizioni legali di una lettera
-                    Global_counter[p[i]] = counter[p[i]];
+                if(counter[p[i]] > letters_tally_table[p[i]]){ //new max of legal appearence of letter
+                    letters_tally_table[p[i]] = counter[p[i]];
                     if((aggiorna & j) == 0){
-                        vincoli_aggiornati[v] = p[i];
+                        updated_constraints[v] = p[i];
                         updated_count = 1;
                         v++;
                         aggiorna |= j;
@@ -121,16 +118,15 @@ void confronta(uint8_t p[], uint8_t r[], char out[], uint64_t accettabili[]){
             }
             else{
                 out[i] = '/';
-                //non conto le lettere sbagliate
-                if((Global_sbagliate & j) == 0){ //se non era già una sbagliata
-                    Global_sbagliate |= j;
+                if((letters_not_in_word & j) == 0){
+                    letters_not_in_word |= j;
                     if(counter[p[i]] == 0){
                         for(k=0;k<len;k++){
-                            accettabili[k] &= ~j;
+                            acceptable_letters[k] &= ~j;
                         }
                     }
                     if((aggiorna & j) == 0){
-                        vincoli_aggiornati[v] = p[i];
+                        updated_constraints[v] = p[i];
                         updated_count = 1;
                         v++;
                         aggiorna |= j;
@@ -139,32 +135,32 @@ void confronta(uint8_t p[], uint8_t r[], char out[], uint64_t accettabili[]){
             }
         }
     }
-    vincoli_aggiornati[v] = -1;
+    updated_constraints[v] = -1;
     return;
 }
 
 //discards words in the dictionary accordingly with the most recent updates of constraints
-int scarta_update(uint8_t p[], uint64_t accettabili[]){
+int discard_words_updated_constraints_only(uint8_t p[], uint64_t acceptable_letters[]){
     int i=0, k=0;
     uint64_t j;
     uint8_t counter[64];
     memset(counter,0,64);
     while(i<len){
         j = 1ULL << p[i];
-        if((j & accettabili[i]) == 0){
+        if((j & acceptable_letters[i]) == 0){
             return 1;
         }
         counter[p[i]]++;
         i++;
     }
-    while(vincoli_aggiornati[k] != -1){
-        j = 1ULL << vincoli_aggiornati[k];
-        if((j & Global_sbagliate) > 0){ //il flag sbagliate mi garantisce di conoscere il numero esatto
-            if(counter[vincoli_aggiornati[k]] != Global_counter[vincoli_aggiornati[k]]){
+    while(updated_constraints[k] != -1){
+        j = 1ULL << updated_constraints[k];
+        if((j & letters_not_in_word) > 0){ //il flag sbagliate mi garantisce di conoscere il numero esatto
+            if(counter[updated_constraints[k]] != letters_tally_table[updated_constraints[k]]){
                 return 1;
             }
         }
-        else if(counter[vincoli_aggiornati[k]] < Global_counter[vincoli_aggiornati[k]]){ //la lettera non appare abbastanza volte
+        else if(counter[updated_constraints[k]] < letters_tally_table[updated_constraints[k]]){ //la lettera non appare abbastanza volte
             return 1;
         }
         k++;
@@ -172,12 +168,12 @@ int scarta_update(uint8_t p[], uint64_t accettabili[]){
     return 0;
 }
 //discards words in the dictionary accordingly with the most recent updates in the bitmasks
-int scarta_updated_mask(uint8_t p[], uint64_t accettabili[]){
+int discard_words_updated_mask_only(uint8_t p[], uint64_t acceptable_letters[]){
     int i=0;
     uint64_t j;
     while(i<len){
         j = 1ULL << p[i];
-        if((j & accettabili[i]) == 0){
+        if((j & acceptable_letters[i]) == 0){
             return 1;
         }
         i++;
@@ -185,7 +181,7 @@ int scarta_updated_mask(uint8_t p[], uint64_t accettabili[]){
     return 0;
 }
 //discards words in the dictionary accordingly with all the constraints
-int scarta(uint8_t p[], uint8_t r[], uint64_t accettabili[]){
+int discard_words(uint8_t p[], uint8_t r[], uint64_t acceptable_letters[]){
     uint64_t j;
     uint64_t checklist = 0ULL;
     int8_t to_check[2*len+1];
@@ -203,7 +199,7 @@ int scarta(uint8_t p[], uint8_t r[], uint64_t accettabili[]){
             to_check[k] = p[i];
             k++;
         }
-        if((j & accettabili[i]) == 0){ //mi assicuro che la lettera possa andare nella i-esima posizione
+        if((j & acceptable_letters[i]) == 0){
             return 1;
         }
         counter[p[i]]++;
@@ -213,12 +209,12 @@ int scarta(uint8_t p[], uint8_t r[], uint64_t accettabili[]){
     k=0;
     while(to_check[k] != -1){
         j = 1ULL << to_check[k];
-        if((j & Global_sbagliate) > 0){ //il flag sbagliate mi garantisce di conoscere il numero esatto
-            if(counter[to_check[k]] != Global_counter[to_check[k]]){
+        if((j & letters_not_in_word) > 0){
+            if(counter[to_check[k]] != letters_tally_table[to_check[k]]){
                 return 1;
             }
         }
-        else if(counter[to_check[k]] < Global_counter[to_check[k]]){ //la lettera non appare abbastanza volte
+        else if(counter[to_check[k]] < letters_tally_table[to_check[k]]){
             return 1;
         }
         k++;
@@ -286,23 +282,22 @@ void inorder(node* visit){
 }
 
 void left_rotate(node* x){
-    node* y = x->r; //imposto y come figlio destro di x
+    node* y = x->r;
     if(y == NULL){
-        //printf("non e` stato possibile eseguire la funzione");
         return;
     }
-    x->r = y->l; //il sotto-albero sx di y diventa destro di x
+    x->r = y->l;
     if(y->l != NULL){
-        y->l->p = x; //se y ha un figlio sx, x diventa i padre del sx di y
+        y->l->p = x;
     }
-    y->p = x->p; //assegno al padre di y il padre di x
-    if(x->p == NULL){ //se x e` root
+    y->p = x->p;
+    if(x->p == NULL){
         root = y;
     }
-    else if(x == x->p->l){ //se x e` figlio sinistro di suo padre
+    else if(x == x->p->l){
         x->p->l = y;
     }
-    else{ //se x e` figlio destro di suo padre
+    else{
         x->p->r = y;
     }
     y->l = x;
@@ -310,23 +305,22 @@ void left_rotate(node* x){
 }
 
 void right_rotate(node* x){
-    node* y = x->l; //iposto y come figlio sinistro di x
+    node* y = x->l;
     if(y == NULL){
-        //printf("non e` stato possibile eseguire la funzione");
         return;
     }
-    x->l = y->r; //il sottoalbero dx di y diventa sx di x
+    x->l = y->r;
     if(y->r != NULL){
-        y->r->p = x; //se y ha un figlio dx, x diventa i padre del dx di y
+        y->r->p = x;
     }
-    y->p = x->p; //assegno al padre di y il padre di x
-    if(x->p == NULL){ //se x e` root
+    y->p = x->p;
+    if(x->p == NULL){
         root = y;
     }
-    else if(x == x->p->r){ //se x e` figlio dx di suo padre
+    else if(x == x->p->r){
         x->p->r = y;
     }
-    else{ //se x e` figlio sx di suo padre
+    else{
         x->p->l = y;
     }
     y->r = x;
@@ -335,10 +329,10 @@ void right_rotate(node* x){
 
 void RB_Insert_Fixup(node* x){
     node* y;
-    while(x->p!=NULL && x->p->color==RED){ //per funzionare devo avere x.p e x.p.p validi, basta x.p rosso
-        if(x->p == x->p->p->l) { //x.p non puo essere radice, esiste x.p.p se esiste valido x.p
+    while(x->p!=NULL && x->p->color==RED){
+        if(x->p == x->p->p->l) {
             y = x->p->p->r;
-            if (y != NULL && y->color == RED) { //se y e NULL vuol dire che e una figlia (nera)
+            if (y != NULL && y->color == RED) {
                 x->p->color = BLACK;
                 y->color = BLACK;
                 x->p->p->color = RED;
@@ -354,9 +348,9 @@ void RB_Insert_Fixup(node* x){
                 right_rotate(x->p->p);
             }
         }
-        else{ //x.p e figlio destro di x.p.p
+        else{
             y = x->p->p->l;
-            if(y != NULL && y->color == RED){ //se y e NULL vuol dire che e una figlia (nera)
+            if(y != NULL && y->color == RED){
                 x->p->color = BLACK;
                 y->color = BLACK;
                 x->p->p->color = RED;
@@ -424,7 +418,7 @@ void create_and_insert(uint8_t* str, uint8_t scartata){
     return;
 }
 
-int binary_search(uint8_t * target){//ricerca binaria in BST, restituisce 1 se trovato, 0 altrimenti
+int binary_search(uint8_t * target){// 1 if found, 0 otherwise
     node* temp = root;
     int c = 1;
     while(c!=0 && temp != NULL){
@@ -448,19 +442,19 @@ int binary_search(uint8_t * target){//ricerca binaria in BST, restituisce 1 se t
 //the gray_l and gray_r indicate that there are only discarded words in the left and rigth subtree of the node
 //gray bits are updated recursively using the return statements.
 
-uint8_t set_vincoli_recursive(node* x, uint64_t accettabili[]){
-    if(!x->scartata && scarta_update((uint8_t *) x+sizeof(node),accettabili)){
+uint8_t set_constraints(node* x, uint64_t accettabili[]){
+    if(!x->scartata && discard_words_updated_constraints_only((uint8_t *) x + sizeof(node), accettabili)){
         x->scartata = 1;
-        filtrate_counter--;
+        filtered_strings_counter--;
     }
     if(x->l != NULL){
-        x->grey_l = set_vincoli_recursive(x->l, accettabili);
+        x->grey_l = set_constraints(x->l, accettabili);
     }
     else{
         x->grey_l = 1;
     }
     if(x->r != NULL){
-        x->grey_r = set_vincoli_recursive(x->r, accettabili);
+        x->grey_r = set_constraints(x->r, accettabili);
     }
     else{
         x->grey_r = 1;
@@ -468,19 +462,19 @@ uint8_t set_vincoli_recursive(node* x, uint64_t accettabili[]){
     return x->scartata & x->grey_l & x->grey_r;
 }
 
-uint8_t set_vincoli_recursive_mask(node* x, uint64_t accettabili[]){ //update using bitmasks only
-    if(!x->scartata && scarta_updated_mask((uint8_t *) x+sizeof(node),accettabili)){
+uint8_t set_constraints_mask_only(node* x, uint64_t accettabili[]){ //update using bitmasks only
+    if(!x->scartata && discard_words_updated_mask_only((uint8_t *) x + sizeof(node), accettabili)){
         x->scartata = 1;
-        filtrate_counter--;
+        filtered_strings_counter--;
     }
     if(x->l != NULL){
-        x->grey_l = set_vincoli_recursive_mask(x->l, accettabili);
+        x->grey_l = set_constraints_mask_only(x->l, accettabili);
     }
     else{
         x->grey_l = 1;
     }
     if(x->r != NULL){
-        x->grey_r = set_vincoli_recursive_mask(x->r, accettabili);
+        x->grey_r = set_constraints_mask_only(x->r, accettabili);
     }
     else{
         x->grey_r = 1;
@@ -488,43 +482,43 @@ uint8_t set_vincoli_recursive_mask(node* x, uint64_t accettabili[]){ //update us
     return x->scartata & x->grey_l & x->grey_r;
 }
 
-uint8_t aggiorna_vincoli_recursive(node* x, uint64_t accettabili[]){
-    if(!x->scartata && scarta_update((uint8_t *) x+sizeof(node),accettabili)){
+uint8_t update_constraints(node* x, uint64_t accettabili[]){
+    if(!x->scartata && discard_words_updated_constraints_only((uint8_t *) x + sizeof(node), accettabili)){
         x->scartata = 1;
-        filtrate_counter--;
+        filtered_strings_counter--;
     }
     if(!x->grey_l){
-        x->grey_l = aggiorna_vincoli_recursive(x->l, accettabili);
+        x->grey_l = update_constraints(x->l, accettabili);
     }
     if(!x->grey_r){
-        x->grey_r = aggiorna_vincoli_recursive(x->r, accettabili);
+        x->grey_r = update_constraints(x->r, accettabili);
     }
     return x->scartata & x->grey_l & x->grey_r;
 }
 
-uint8_t aggiorna_vincoli_recursive_mask(node* x, uint64_t accettabili[]){ //return 1 se da li a sotto l'albero è tutto composto di scartate (grey)
-    if(!x->scartata && scarta_updated_mask((uint8_t *) x+sizeof(node),accettabili)){
+uint8_t update_constraints_mask_only(node* x, uint64_t accettabili[]){
+    if(!x->scartata && discard_words_updated_mask_only((uint8_t *) x + sizeof(node), accettabili)){
         x->scartata = 1;
-        filtrate_counter--;
+        filtered_strings_counter--;
     }
     if(!x->grey_l){
-        x->grey_l = aggiorna_vincoli_recursive_mask(x->l, accettabili);
+        x->grey_l = update_constraints_mask_only(x->l, accettabili);
     }
     if(!x->grey_r){
-        x->grey_r = aggiorna_vincoli_recursive_mask(x->r, accettabili);
+        x->grey_r = update_constraints_mask_only(x->r, accettabili);
     }
     return x->scartata & x->grey_l & x->grey_r;
 }
 
-void ripristina_vincoli(node* x){
+void reset_constraints(node* x){
     x->scartata = 0;
     x->grey_l = 0;
     x->grey_r = 0;
     if(x->l != NULL){
-        ripristina_vincoli(x->l);
+        reset_constraints(x->l);
     }
     if(x->r != NULL){
-        ripristina_vincoli(x->r);
+        reset_constraints(x->r);
     }
     return;
 }
@@ -543,8 +537,6 @@ void RB_del(node* geri){
 //wich tasks to complete. The state is updated by input commands that start with a +
 
 int main(){
-    //freopen("/home/giacomo/Scaricati/n128000_k5_g200_test1.txt","r",stdin);
-    //clock_t begin = clock();
     int tries, s = 0, set = 0, sc = 0;
     char command = 0;
     s = scanf("%d",&len);
@@ -555,32 +547,32 @@ int main(){
     uint8_t reference[len];
     char output[len];
     int8_t vi[len+1];
-    vincoli_aggiornati = vi;
-    uint64_t accettabili[len]; //vettore di bitmask per segnare le lettere accettate/vietate/obbligatorie in ogni pos
-    temp[0] = getc(stdin); //leggo \n che scanf ignora
+    updated_constraints = vi;
+    uint64_t acceptable_letters[len];
+    temp[0] = getc(stdin);
     command = get_input(temp);
-    while(command == 0){ //inserimento iniziale di parole
+    while(command == 0){
         create_and_insert(temp,0);
         total_counter++;
         command = get_input(temp);
     }
     while(command != 'e'){
-        if(command == 'n'){ //+nuova_partita
-            Global_sbagliate = 0ULL; //ripristino i counter globali
-            memset(Global_counter,0,64);
-            if(end != 2){ //la prima partita non ho bisogno di ripristinare i vincoli
-                ripristina_vincoli(root);
+        if(command == 'n'){
+            letters_not_in_word = 0ULL;
+            memset(letters_tally_table, 0, 64);
+            if(state != 2){
+                reset_constraints(root);
             }
-            filtrate_counter = total_counter;
-            memset(accettabili,UINT8_MAX,len*8); //tutte le lettere sono accettabili in ogni posizione
-            end = 0; //flaggo l'inizio della partita
+            filtered_strings_counter = total_counter;
+            memset(acceptable_letters, UINT8_MAX, len * 8);
+            state = 0;
             set = 1;
-            command = get_input(reference); //assegno la reference
-            s = scanf("%d",&tries); //assegno i tentativi
-            temp[0] = getc(stdin); //leggo anche \n
+            command = get_input(reference);
+            s = scanf("%d",&tries);
+            temp[0] = getc(stdin);
             command = get_input(temp);
         }
-        else if(command == 's'){ //stampa filtrate
+        else if(command == 's'){
             if(!set){
                 quick_inorder(root);
             }
@@ -589,16 +581,16 @@ int main(){
             }
             command = get_input(temp);
         }
-        else if(command  == 'i'){ //inserisci inizio
+        else if(command  == 'i'){
             command = get_input(temp);
             set = 1;
             while(command == 0){
                 total_counter++;
-                if(end == 0){
-                    sc = scarta(temp,reference,accettabili);
+                if(state == 0){
+                    sc = discard_words(temp, reference, acceptable_letters);
                     create_and_insert(temp,sc);
                     if(!sc){
-                        filtrate_counter++;
+                        filtered_strings_counter++;
                     }
                 }
                 else{
@@ -609,35 +601,35 @@ int main(){
             command = get_input(temp);
         }
         else{
-            while(command == 0 && end == 0 && tries > 0){
+            while(command == 0 && state == 0 && tries > 0){
                 if(binary_search(temp)){
                     updated_count = 0;
-                    confronta(temp,reference,output,accettabili);
-                    if(end == 1){
+                    compate_strings(temp, reference, output, acceptable_letters);
+                    if(state == 1){
                         printf("ok\n");
                     }
                     else{
-                        if(filtrate_counter != 1){
+                        if(filtered_strings_counter != 1){
                             if(set == 1){
                                 set = 0;
                                 if(updated_count){
-                                    set_vincoli_recursive(root,accettabili);
+                                    set_constraints(root, acceptable_letters);
                                 }
                                 else{
-                                    set_vincoli_recursive_mask(root,accettabili);
+                                    set_constraints_mask_only(root, acceptable_letters);
                                 }
                             }
                             else{
                                 if(updated_count){
-                                    aggiorna_vincoli_recursive(root,accettabili);
+                                    update_constraints(root, acceptable_letters);
                                 }
                                 else{
-                                    aggiorna_vincoli_recursive_mask(root,accettabili);
+                                    update_constraints_mask_only(root, acceptable_letters);
                                 }
                             }
                         }
                         fwrite(output,1,len,stdout);
-                        printf("\n%d\n",filtrate_counter);
+                        printf("\n%d\n", filtered_strings_counter);
                     }
                     tries--;
                 }
@@ -646,16 +638,12 @@ int main(){
                 }
                 command = get_input(temp);
             }
-            if(tries == 0 && end == 0){
-                end = 1;
+            if(tries == 0 && state == 0){
+                state = 1;
                 printf("ko\n");
             }
         }
     }
-    //RB_del(root);
-    /*clock_t end = clock();
-    double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
-    FILE* fp = fopen("/home/giacomo/Scaricati/time_spent.txt","w");
-    fprintf(fp,"%f",time_spent);*/
+    RB_del(root);
     return 0;
 }
