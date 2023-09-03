@@ -397,19 +397,19 @@ void RB_Insert(node* z){
     RB_Insert_Fixup(z);
 }
 
-void create_and_insert(uint8_t* str, uint8_t scartata){
+void create_and_insert(uint8_t* str, uint8_t discarded){
     node *a;
     a = (node*)malloc(sizeof(node)+len);
     memcpy((uint8_t *) a + sizeof(node),str,len);
     a->p = NULL;
     a->l = NULL;
     a->r = NULL;
-    a->discarded = scartata;
+    a->discarded = discarded;
     a->grey_l = 0;
     a->grey_r = 0;
     if(root == NULL){
         a->color = BLACK;
-        root = a; //se sto creando il primo nodo assegno a alla radice
+        root = a;
     }
     else{
         a->color = RED;
